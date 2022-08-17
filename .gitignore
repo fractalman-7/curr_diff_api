@@ -20,3 +20,5 @@ config/*.yaml
 
 # certificates
 *.pem
+# pytest
+/tests/.pytest_cache/
