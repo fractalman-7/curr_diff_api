@@ -2,14 +2,15 @@ import logging
 
 from aiohttp import web
 
-from app.context import AppContext
 from app import routes
+from app.context import AppContext
+from app.utils import cbr
 
 
 def create_app() -> web.Application:
     app = web.Application()
 
-    context = AppContext()
+    context = AppContext(cbr_client=cbr.CBRClient())
 
     app.on_startup.append(context.on_startup)
     app.on_shutdown.append(context.on_shutdown)
