@@ -17,7 +17,7 @@ class CurrencyRatesDifferenceParameters:
         try:
             date_from = datetime.date.fromisoformat(query.get("from_date"))
             date_to = datetime.date.fromisoformat(query.get("to_date"))
-        except ValueError:
+        except (ValueError, TypeError):
             date_from = date_to = None
 
         return CurrencyRatesDifferenceParameters(code, date_from, date_to)
