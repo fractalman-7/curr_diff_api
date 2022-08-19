@@ -18,7 +18,7 @@ def wrap_handler(
     return wrapper
 
 
-def setup_routes(app: web.Application, context: AppContext) -> tp.NoReturn:
+def setup_routes(app: web.Application, context: AppContext) -> None:
     app.router.add_get(
         "/v1/ping",
         wrap_handler(ping.handle, context),
