@@ -53,6 +53,8 @@ class CBRClient(BaseCBRClient):
         currency_codes = await self._cache.get("currency_codes")
         if currency_codes:
             return currency_codes
+        else:
+            currency_codes = []
         async with self._session.get("/scripts/XML_valFull.asp") as response:
             if response.status != 200:
                 logging.error(f"{response.url} returned {response.status} code")
