@@ -7,6 +7,8 @@ from xml.etree import ElementTree
 
 import aiohttp
 
+from app.utils import caching
+
 
 class BaseCBRClient(abc.ABC):
     async def start(self):
@@ -27,24 +29,30 @@ class BaseCBRClient(abc.ABC):
 
 
 class CBRClient(BaseCBRClient):
-    def __init__(self, base_url: str = "https://www.cbr.ru"):
+    def __init__(
+            self,
+            base_url: str = "https://www.cbr.ru",
+            cache: caching.BaseCache = caching.LRUCache(),
+    ):
+        self._cache = cache
         self._session: tp.Optional[aiohttp.ClientSession] = None
         self._base_url = base_url
-        self._currency_codes = []
 
     async def start(self):
+        await self._cache.init()
         if self._session:
             await self._session.close()
         self._session = aiohttp.ClientSession(self._base_url)
 
     async def close(self):
+        await self._cache.close()
         if self._session:
             await self._session.close()
 
     async def get_currency_codes(self) -> tp.Optional[tp.List[str]]:
-        if self._currency_codes:
-            return self._currency_codes
-
+        currency_codes = await self._cache.get("currency_codes")
+        if currency_codes:
+            return currency_codes
         async with self._session.get("/scripts/XML_valFull.asp") as response:
             if response.status != 200:
                 logging.error(f"{response.url} returned {response.status} code")
@@ -56,13 +64,18 @@ class CBRClient(BaseCBRClient):
         for elem in tree.findall("Item/ISO_Char_Code"):
             code = elem.text
             if code is not None:
-                self._currency_codes.append(code)
+                currency_codes.append(code)
 
-        return self._currency_codes
+        await self._cache.put("currency_codes", currency_codes)
+        return currency_codes
 
     async def get_currency_rate_relative_rub(
             self, code: str, for_date: datetime.date
     ) -> tp.Optional[Decimal]:
+        cache_key = f"{code}:{for_date.isoformat()}"
+        value = await self._cache.get(cache_key)
+        if value:
+            return Decimal(value)
         async with self._session.get(
                 "/scripts/XML_daily.asp", params={"date_req": for_date.strftime("%d/%m/%Y")}
         ) as response:
@@ -77,7 +90,9 @@ class CBRClient(BaseCBRClient):
         if elem is None:
             return None
 
-        return Decimal(elem.find("Value").text.replace(",", "."))
+        value = elem.find("Value").text.replace(",", ".")
+        await self._cache.put(cache_key, float(value))
+        return Decimal(value)
 
 
 class TestCBRClient(BaseCBRClient):
